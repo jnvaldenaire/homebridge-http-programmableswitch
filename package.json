@@ -1,17 +1,17 @@
 {
-  "name": "homebridge-http-watcher-switch",
-  "version": "0.0.3",
+  "name": "homebridge-http-programmableswitch",
+  "version": "0.0.4",
   "description": "Homebridge switches that can be triggered by calling HTTP handler",
   "author": {
-    "name": "KisonBY",
-    "email": "kison.by@gmail.com"
+    "name": "jnvaldenaire",
+    "email": "source-code@jnvaldenaire.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/KisonBY/homebrigde-http-watcher-switch"
+    "url": "https://github.com/jnvaldenaire/homebrigde-http-programmableswitch"
   },
   "bugs": {
-    "url": "https://github.com/KisonBY/homebrigde-http-watcher-switch/issues"
+    "url": "https://github.com/jnvaldenaire/homebrigde-http-programmableswitch/issues"
   },
   "license": "MIT",
   "keywords": [
@@ -20,7 +20,10 @@
     "http",
     "homekit",
     "programmable-switch",
-    "stateless-programmable-switch"
+    "stateless-programmable-switch",
+    "event",
+    "hooks",
+    "hook"
   ],
   "engines": {
     "node": ">=0.12.0",

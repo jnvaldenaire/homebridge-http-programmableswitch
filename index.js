@@ -7,8 +7,8 @@ var Characteristic;
 var UUIDGen;
 
 var expressApp;
-var pluginName = "homebridge-http-watcher-switch";
-var port = 3001;
+var pluginName = "homebridge-http-programmableswitch";
+var accessoryName = "HttpProgrammableSwitch";
 
 module.exports = function(homebridge)
 {
@@ -16,19 +16,18 @@ module.exports = function(homebridge)
   Service = homebridge.hap.Service;
   Characteristic = homebridge.hap.Characteristic;
   UUIDGen = homebridge.hap.uuid;
+  
+  homebridge.registerAccessory(pluginName, accessoryName, HttpProgrammableSwitch);
+}
 
-  //Load configuration (if defined)
-  var pluginConfigPath = path.join(homebridge.user.storagePath(), pluginName, "config.json");
-  try
-  {
-    var pluginConfig = JSON.parse(fs.readFileSync(pluginConfigPath, "utf8"));
-    if (pluginConfig.port) port = pluginConfig.port;
-  }
-  catch (err)
-  {
-    console.warn("Failed to open plugin configuration, default settings will be used!" , err);
-  }
-
+function HttpProgrammableSwitch(log, config)
+{
+  var self = this;
+  this.config = config;
+  this.log = log;
+  this.name = config.name;
+  var port = config.port;
+  
   console.log(`Starting HTTP listener on port ${port}...`);
   expressApp = express();
   expressApp.listen(port, (err) =>
@@ -39,50 +38,66 @@ module.exports = function(homebridge)
     }
     else
     {
-      console.log(`Express is running on port ${port}.`)
+      this.log(`Express is running on port ${port}.`)
     }
   });
-  console.log("HTTP listener started.");
+  this.log("HTTP listener started.");
   
-  homebridge.registerAccessory(pluginName, "HttpWatcherSwitch", HttpWatcherSwitch);
-}
-
-function HttpWatcherSwitch(log, config)
-{
-  this.log = log;
-  this.name = config.name;
-
-  expressApp.get(config["http-handler-path"], (request, response) =>
-  {
-    this.triggerSwitch();
-    response.send(`Switch '${this.name}' triggered.`);
+  config.switches.forEach(function(sw, i) {
+    if (sw.maxValue === undefined) sw.maxValue = 2;
+    expressApp.get(sw.path, (request, response) => {
+      self.triggerSwitch(i, 0);
+      response.send(`Switch '${sw.name}' triggered.`);
+    });
+    expressApp.get(sw.path+"/0", (request, response) => {
+      self.triggerSwitch(i, 0);
+      response.send(`Switch '${sw.name}' triggered.`);
+    });
+    if (sw.maxValue >= 1) {
+      expressApp.get(sw.path+"/1", (request, response) => {
+        self.triggerSwitch(i, 1);
+        response.send(`Switch '${sw.name}' triggered.`);
+      });
+    }
+    if (sw.maxValue >= 2) {
+      expressApp.get(sw.path+"/2", (request, response) => {
+        self.triggerSwitch(i, 2);
+        response.send(`Switch '${sw.name}' triggered.`);
+      });
+    }
   });
 }
 
-HttpWatcherSwitch.prototype.identify = function()
+HttpProgrammableSwitch.prototype.identify = function()
 {
   this.log(`identify called for ${this.name}`);
 }
 
-HttpWatcherSwitch.prototype.getServices = function()
+HttpProgrammableSwitch.prototype.getServices = function()
 {
+  var self = this;
   this.log(`getServices called for ${this.name}`);
 
   this.services = [];
-
-  this.switchService = new Service.StatelessProgrammableSwitch(this.name);
-  this.switchService.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
-                    .setProps({ maxValue: 0 });
-
-  this.services.push(this.switchService);
+  
+  this.config.switches.forEach(function(sw, i) {
+    if (sw.maxValue === undefined) sw.maxValue = 2;
+    sw.maxValue = Math.max(0, Math.min(2, parseInt(sw.maxValue)));
+    var switchService = new Service.StatelessProgrammableSwitch(sw.name, sw.name);
+    switchService.getCharacteristic(Characteristic.ProgrammableSwitchEvent)
+                      .setProps({ maxValue: sw.maxValue });
+    switchService.getCharacteristic(Characteristic.ServiceLabelIndex).setValue(i+1);
+  
+    self.services.push(switchService);
+  });
 
   return this.services;
 }
 
-HttpWatcherSwitch.prototype.triggerSwitch = function()
+HttpProgrammableSwitch.prototype.triggerSwitch = function(i, v)
 {
   this.log("Triggering switch...");
-
-  var char = this.switchService.getCharacteristic(Characteristic.ProgrammableSwitchEvent);
-  char.setValue(Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS);
+  var switchService = this.services[i];
+  var char = switchService.getCharacteristic(Characteristic.ProgrammableSwitchEvent);
+  char.setValue(v);
 }
